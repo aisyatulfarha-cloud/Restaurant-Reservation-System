@@ -2,116 +2,134 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Reservation;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Reservation;
 
 class ReservationController extends Controller
 {
-    /**
-     * 1. index() - Read: View Availability
-     * Handles date and guest count criteria to dynamically filter and return available slots.
-     */
-    public function index(Request $request)
+    public function select()
     {
-        $query = Reservation::query();
-
-        if ($request->has('reservation_date')) {
-            $query->where('reservation_date', $request->query('reservation_date'));
-        }
-
-        if ($request->has('guest_count')) {
-            $query->where('guest_count', '<=', $request->query('guest_count'));
-        }
-
-        $availableSlots = $query->get();
-
-        return view('customer.index', compact('availableSlots'));
+        return view('reservation-select');
     }
 
-    /**
-     * 2. create() - Read: Form View
-     * Returns the structured booking form view once a preferred time slot is chosen.
-     */
-    public function create()
+    public function details(Request $request)
     {
-        return view('customer.create');
-    }
-
-    /**
-     * 3. store() - Create: Finalize Booking
-     * Validates the incoming payload data, binds them to the chosen slot, and saves to database.
-     */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'customer_name'    => 'required|string|max:300',
-            'contact_info'     => 'required|string',
+        $request->validate([
             'reservation_date' => 'required|date',
-            'time_slot'        => 'required',
-            'guest_count'      => 'required|integer|min:1',
-            'special_requests' => 'nullable|string',
+            'guest_count' => 'required|integer|min:1',
+            'reservation_time' => 'required',
         ]);
 
-        // Default reservation status for new submissions
-        $validated['status'] = 'Confirmed';
-
-        // Record entry to the database
-        Reservation::create($validated);
-
-        return redirect()->route('reservations.index')
-                         ->with('success', 'Reservation finalized successfully!');
+        return view('reservation-details', [
+            'reservation_date' => $request->reservation_date,
+            'guest_count' => $request->guest_count,
+            'reservation_time' => $request->reservation_time,
+        ]);
     }
 
-    /**
-     * 4. destroy() - Delete: Cancel Reservation
-     * Allows customers to remove or change their reservation status to "Cancelled".
-     */
-    public function delete($id)
+    public function store(Request $request)
     {
-        $reservation = Reservation::findOrFail($id);
-        
-        $reservation->delete();
+        $request->validate([
+            'reservation_date' => 'required|date',
+            'reservation_time' => 'required',
+            'guest_count' => 'required|integer|min:1',
+            'full_name' => 'required|string|max:255',
+            'phone_number' => 'required|string|max:20',
+            'email' => 'nullable|email',
+            'special_request' => 'nullable|string',
+        ]);
 
-        return redirect()->route('reservations.index')
-                         ->with('success', 'Your reservation has been successfully cancelled.');
+        $reservation = Reservation::create([
+            'booking_id' => 'ALR' . rand(10000, 99999),
+            'reservation_date' => $request->reservation_date,
+            'reservation_time' => $request->reservation_time,
+            'guest_count' => $request->guest_count,
+            'full_name' => $request->full_name,
+            'phone_number' => $request->phone_number,
+            'email' => $request->email,
+            'special_request' => $request->special_request,
+            'status' => 'Pending',
+        ]);
+
+        return redirect()->route('reservation.confirmation', $reservation->id);
     }
-}
-use App\Http\Controllers\ReservationController;
 
-// Customer Reservation CRUD Routes
-Route::get('/reservation/create', [ReservationController::class, 'create'])->name('reservation.create');
-Route::post('/reservation', [ReservationController::class, 'store'])->name('reservation.store');
-Route::get('/reservation/{id}', [ReservationController::class, 'show'])->name('reservation.show');
-Route::get('/reservation/{id}/edit', [ReservationController::class, 'edit'])->name('reservation.edit');
-Route::put('/reservation/{id}', [ReservationController::class, 'update'])->name('reservation.update');
-Route::delete('/reservation/{id}', [ReservationController::class, 'destroy'])->name('reservation.destroy');
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Reservation extends Model
-{
-    use HasFactory;
-
-    // Defines fields that are safe to be mass-assigned during CRUD storage actions
-    protected $fillable = [
-        'customer_name',
-        'customer_email',
-        'customer_phone',
-        'reservation_date',
-        'reservation_time',
-        'guest_count',
-        'special_requests',
-        'status',   // Added to track states like 'Pending' or 'Confirmed'
-        'table_id'  // Foreign key mapping to physical table layouts
-    ];
-
-    // Establish the relationship back to a physical table profile
-    public function table()
+    public function confirmation(Reservation $reservation)
     {
-        return $this->belongsTo(Table::class);
+        return view('reservation-confirmation', compact('reservation'));
+    }
+
+    public function edit(Reservation $reservation)
+    {
+        return view('reservation-edit', compact('reservation'));
+    }
+
+    public function update(Request $request, Reservation $reservation)
+    {
+        $request->validate([
+            'full_name' => 'required|string|max:255',
+            'phone_number' => 'required|string|max:20',
+            'email' => 'nullable|email',
+            'special_request' => 'nullable|string',
+        ]);
+
+        $reservation->update([
+            'full_name' => $request->full_name,
+            'phone_number' => $request->phone_number,
+            'email' => $request->email,
+            'special_request' => $request->special_request,
+        ]);
+
+        return redirect()->route('reservation.confirmation', $reservation->id);
+    }
+
+    public function dashboard(Request $request)
+    {
+        $reservations = Reservation::query();
+
+        if ($request->search) {
+            $reservations->where(function ($query) use ($request) {
+                $query->where('booking_id', 'like', '%' . $request->search . '%')
+                    ->orWhere('full_name', 'like', '%' . $request->search . '%')
+                    ->orWhere('phone_number', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        if ($request->from_date) {
+            $reservations->whereDate('reservation_date', '>=', $request->from_date);
+        }
+
+        if ($request->to_date) {
+            $reservations->whereDate('reservation_date', '<=', $request->to_date);
+        }
+
+        if ($request->reservation_time && $request->reservation_time != 'all') {
+            $reservations->where('reservation_time', $request->reservation_time);
+        }
+
+        if ($request->guest_count && $request->guest_count != 'all') {
+            $reservations->where('guest_count', $request->guest_count);
+        }
+
+        if ($request->status && $request->status != 'all') {
+            $reservations->where('status', $request->status);
+        }
+
+        $reservations = $reservations->latest()->get();
+
+        return view('staff-dashboard', compact('reservations'));
+    }
+
+    public function updateStatus(Request $request, Reservation $reservation)
+    {
+        $request->validate([
+            'status' => 'required|in:Pending,Confirmed,Arrived,Cancelled',
+        ]);
+
+        $reservation->update([
+            'status' => $request->status,
+        ]);
+
+        return redirect()->route('staff.dashboard');
     }
 }
