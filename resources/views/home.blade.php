@@ -11,19 +11,16 @@
             font-family: Arial, sans-serif;
         }
 
-
-            .hero {
-    min-height: 100vh;
-    background-image:
-        linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.45)),
-        url("/images/homeb.jpg");
-    background-size: cover;
-    background-position: center;
-    border-radius: 0;
-    position: relative;
-    color: white;
-}
-        
+        .hero {
+            min-height: 100vh;
+            background-image:
+                linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.45)),
+                url("{{ asset('images/homeb.jpg') }}");
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            color: white;
+        }
 
         .navbar-custom {
             padding: 30px 55px;
@@ -111,11 +108,11 @@
 <section class="hero">
 
     <div class="navbar-custom">
-        <img src="/images/logo.PNG" class="logo">
+        <img src="{{ asset('images/logo.PNG') }}" class="logo">
 
         <div class="nav-links">
             <a href="#">About Us</a>
-            <a href="staffLogin">Staff Login</a>
+            <a href="{{ route('staff.login') }}">Staff Login</a>
         </div>
     </div>
 
@@ -131,7 +128,7 @@
             surrounded by beautiful ambience, delicious food, and memorable moments.
         </p>
 
-        <a href="reservation" class="btn-reservation">
+        <a href="{{ route('reservation.select') }}" class="btn-reservation">
             Make Reservation
         </a>
     </div>
