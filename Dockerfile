@@ -7,7 +7,5 @@ COPY . .
 ENV WEBROOT /var/www/html/public
 ENV COMPOSER_ALLOW_SUPERUSER 1
 
-# The fix: Adding the memory limit bypass directly to the install script
-RUN COMPOSER_MEMORY_LIMIT=-1 composer install --no-interaction --optimize-autoloader --no-dev
-
+# We remove the heavy build command from here, and let it run at startup instead
 EXPOSE 80
