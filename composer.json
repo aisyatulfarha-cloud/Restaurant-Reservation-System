@@ -4,7 +4,8 @@
     "description": "The Laravel Framework.",
     "license": "MIT",
     "require": {
-        "php": "^8.2"
+        "php": "^8.2",
+        "laravel/framework": "^11.0"
     },
     "config": {
         "optimize-autoloader": true,
